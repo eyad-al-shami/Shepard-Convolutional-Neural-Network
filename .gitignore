@@ -1,0 +1,10 @@
+/images
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.svg
+*.svgz
+/__pycache__
