@@ -69,7 +69,6 @@ class RandomText(object):
         if font is None:
             self.fonts = matplotlib.font_manager.findSystemFonts(fontpaths=None, fontext='ttf')
         
-        print(self.fonts)
         # mit words list file, the max word length is 22
         # https://www.mit.edu/~ecprice/wordlist.10000
         self.max_word_length = 22

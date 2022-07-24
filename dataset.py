@@ -7,18 +7,26 @@ from PIL import Image
 from transforms import CutOutRectangles, RandomText, ToTensor
 
 class ImageInpaintingDataset(Dataset):
-    """Face Landmarks dataset."""
 
-    def __init__(self, root_dir, extension='jpg', min_size=None, transform=None):
+    def __init__(self, root_dir, extensions=['jpg'], min_size=None, transform=None, nested=False):
         """
         Args:
             root_dir (string): Directory with all the images.
+            extensions (list of strings, optional): List of allowed image extensions.
+            min_size (int, optional): Minimum size of the image.
             transform (callable, optional): Optional transform to be applied on a sample.
+            nested (bool, optional): if True, images are in a nested directory structure (only one level of nesting).
         """
         self.root_dir = root_dir
         self.transform = transform
         # use glob to get a list of all images in the root_dir
-        self.images = glob(os.path.join(root_dir, f'*.{extension}'))
+        # check the type of extensions, if it is a list, use it, otherwise make it a list
+        if not isinstance(extensions, list) and isinstance(extensions, str):
+            extensions = extensions.split(',')
+        self.images = []
+        search_pattern = '*.{}' if not nested else '**/*.{}'
+        for extension in extensions:
+            self.images.extend(glob(os.path.join(root_dir, search_pattern.format(extension))))
         if (min_size is not None):
             print("Filtering images based on the specified min_size...")
             for img_p in self.images:
