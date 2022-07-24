@@ -8,12 +8,6 @@ import random
 from PIL import ImageFont
 from PIL import ImageDraw 
 
-# fix the seed
-seed = 877
-torch.manual_seed(seed)
-random.seed(seed)
-np.random.seed(seed)
-
 class CutOutRectangles(object):
     """Cut out randomly rectangles from the image.
 
