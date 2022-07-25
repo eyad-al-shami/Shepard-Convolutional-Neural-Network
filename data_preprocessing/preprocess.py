@@ -11,6 +11,12 @@ from glob import glob
 import os
 
 
+seed = 877
+torch.manual_seed(seed)
+random.seed(seed)
+np.random.seed(seed)
+
+
 class CutOutRectangles(object):
     """Cut out randomly rectangles from the image.
 
@@ -181,15 +187,54 @@ from multiprocessing import Pool
 
 if __name__ == "__main__":
 
-    data_path = r"C:\Users\eyad\Pictures\Images Datasets\Filcker Faces thumbnails 128x128"
-    cutOut_path = r"C:\Users\eyad\Pictures\Images Datasets\Flicker Faces thumbnails 128x128 cutout corrupted"
 
-    cutOutFun = CutOutRectangles(cutOut_path, 2)
+    datasets = [
+        {
+            'name': "1_cutout_small_20px",
+            'parameters': {
+                'cutouts': 1,
+                'max_size': 20
+            }
+        },
+        {
+            'name': "1_cutout_large_50px",
+            'parameters': {
+                'cutouts': 1,
+                'max_size': 50
+            }
+        },
+        {
+            'name': "2_cutouts_small_20px",
+            'parameters': {
+                'cutouts': 2,
+                'max_size': 20
+            }
+        },
+        {
+            'name': "2_cutouts_large_50px",
+            'parameters': {
+                'cutouts': 2,
+                'max_size': 50
+            }
+        }
+    ]
 
-    images = read_images(data_path, extensions=["png"], nested=True)
+    original_data_path = r"C:\Users\eyad\Pictures\Images Datasets\Filcker Faces thumbnails 128x128"
+    base_directory = os.path.dirname(original_data_path)
 
-    with Pool(5) as p:
-        print(p.map(cutOutFun, images))
+    images = read_images(original_data_path, extensions=["png"], nested=True)
+
+    for dataset in datasets:
+        dataset_path = os.path.join(base_directory, dataset['name'])
+        if not os.path.exists(dataset_path):
+            os.makedirs(dataset_path)
+
+    
+        cutOutFun = CutOutRectangles(dataset_path, num_rectangles=dataset['parameters']['cutouts'], max_h_size=dataset['parameters']['max_size'], max_w_size=dataset['parameters']['max_size'])
+
+        with Pool(5) as p:
+            p.map(cutOutFun, images)
+        print(f"Done {dataset['name']}")
 
 
 

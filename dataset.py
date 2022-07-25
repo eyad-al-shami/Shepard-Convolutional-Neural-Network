@@ -6,6 +6,7 @@ from PIL import Image
 
 from transforms import CutOutRectangles, RandomText, ToTensor
 
+
 class ImageInpaintingDataset(Dataset):
 
     def __init__(self, root_dir, extensions=['jpg'], min_size=None, transform=None, nested=False):
@@ -49,18 +50,89 @@ class ImageInpaintingDataset(Dataset):
         return sample
 
 
+class ImageInpaintingDatasetPreprocessed(Dataset):
+
+    def __init__(self, root_dir, extensions=['jpg']):
+        """
+        Args:
+            root_dir (string): Directory with all the images.
+            extensions (list of strings, optional): List of allowed image extensions.
+            min_size (int, optional): Minimum size of the image.
+            transform (callable, optional): Optional transform to be applied on a sample.
+            nested (bool, optional): if True, images are in a nested directory structure (only one level of nesting).
+        """
+        self.to_tensor = T.ToTensor()
+
+        self.data = {
+            "original": {
+                "root_path": "",
+                "images_paths": []
+            },
+            "corrupted": {
+                "root_path": "",
+                "images_paths": []
+            },
+            "mask": {
+                "root_path": "",
+                "images_paths": []
+            }
+        }
+
+        search_pattern = '*.{}'
+
+        self.root_dir = root_dir
+        # use glob to get a list of all images in the root_dir
+        # check the type of extensions, if it is a list, use it, otherwise make it a list
+        if not isinstance(extensions, list) and isinstance(extensions, str):
+            extensions = extensions.split(',')
+        
+        self.images_sources = [os.path.join(self.root_dir, name) for name in os.listdir(self.root_dir)]
+
+        self.data["original"]["root_path"] = next((x for x in self.images_sources if 'original' in x), None)
+        self.data["corrupted"]["root_path"] = next((x for x in self.images_sources if 'corrupted' in x), None)
+        self.data["mask"]["root_path"] = next((x for x in self.images_sources if 'mask' in x), None)
+
+        for image_source in self.data:
+            for extension in extensions:
+                self.data[image_source]["images_paths"].extend(glob(os.path.join(self.data[image_source]["root_path"], search_pattern.format(extension))))
+
+    def __len__(self):
+        return len(self.data['corrupted']['images_paths'])
+
+    def __getitem__(self, idx):
+        original_path = self.data["original"]["images_paths"][idx]
+        corrupted_path = self.data["corrupted"]["images_paths"][idx]
+        mask_path = self.data["mask"]["images_paths"][idx]
+
+        original = Image.open(original_path)
+        corrupted = Image.open(corrupted_path)
+        mask = Image.open(mask_path)
+
+        return self.to_tensor(original), self.to_tensor(corrupted), self.to_tensor(mask)
+        
+
+
 if __name__ == '__main__':
-    print('main')
     import numpy as np
     # transform = T.ToPILImage()
-    inpaintingDataset = ImageInpaintingDataset(root_dir='./images', transform=T.Compose([
-                                            #    CutOutRectangles(num_rectangles=1),
-                                               RandomText(text_size=25),
-                                               ToTensor()
-                                           ]))
-    dataloader = DataLoader(inpaintingDataset, batch_size=2,
-                        shuffle=True, num_workers=0)
+    # inpaintingDataset = ImageInpaintingDataset(root_dir='./images', transform=T.Compose([
+    #                                         #    CutOutRectangles(num_rectangles=1),
+    #                                            RandomText(text_size=25),
+    #                                            ToTensor()
+    #                                        ]))
+    # dataloader = DataLoader(inpaintingDataset, batch_size=2,
+    #                     shuffle=True, num_workers=0)
     
+    # for i_batch, sample_batched in enumerate(dataloader):
+    #     print(i_batch, sample_batched['mask'].size(),
+    #         sample_batched['corrupted'].size())
+
+    
+    inpaintingDataset = ImageInpaintingDatasetPreprocessed(r"C:\Users\eyad\Pictures\Images Datasets\2_cutouts_small_20px", extensions=["png"])
+    dataloader = DataLoader(inpaintingDataset, batch_size=64, shuffle=True, num_workers=2)
     for i_batch, sample_batched in enumerate(dataloader):
-        print(i_batch, sample_batched['mask'].size(),
-            sample_batched['corrupted'].size())
+        original, corrupted, mask =  sample_batched
+        print(original.size())
+        print(corrupted.size())
+        print(mask.size())
+        break
