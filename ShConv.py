@@ -30,7 +30,6 @@ class ShConv(nn.Module):
         
         # get the device of one of the kernels
         kernel_device = self.kernels[0].device
-        print(kernel_device)
 
         # defining the final output
         output_features_map = torch.Tensor().to(kernel_device)
@@ -49,22 +48,22 @@ class ShConv(nn.Module):
         return output_features_map, output_mask
 
 
-if __name__ == "__main__":
-    batch = 13
-    in_channels = 8
-    out_channels = 512
-    kernel_size = 5
-    stride = 1
-    padding = 1
-    # TODO: accept both int and string for padding
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    shconv = ShConv(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding)
-    shconv.to(device)
+# if __name__ == "__main__":
+#     batch = 13
+#     in_channels = 8
+#     out_channels = 512
+#     kernel_size = 5
+#     stride = 1
+#     padding = 1
+#     # TODO: accept both int and string for padding
+#     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#     shconv = ShConv(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding)
+#     shconv.to(device)
     
-    masks = torch.randn(batch, in_channels, 32, 32)
-    x = torch.randn(batch, in_channels, 32, 32)
-    x, masks = x.to(device), masks.to(device)
-    output_features_map, output_mask = shconv(masks, x)
-    print(output_features_map.shape)
-    print(output_mask.shape)
+#     masks = torch.randn(batch, in_channels, 32, 32)
+#     x = torch.randn(batch, in_channels, 32, 32)
+#     x, masks = x.to(device), masks.to(device)
+#     output_features_map, output_mask = shconv(masks, x)
+#     print(output_features_map.shape)
+#     print(output_mask.shape)
 

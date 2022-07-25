@@ -32,7 +32,6 @@ class CutOutRectangles(object):
         
         image = np.array(original)
         mask = np.ones_like(image) * 255.
-        print(image.shape)
         h, w = image.shape[:2]
 
         # create the corners of the cutout rectangle
