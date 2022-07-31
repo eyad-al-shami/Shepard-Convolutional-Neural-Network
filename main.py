@@ -14,6 +14,8 @@ from torchvision import utils
 from torchvision import transforms as T
 from configs import training_configs, experiments_config, data_set_config, seed
 import argparse
+import os
+import time
 
 # fix the seed
 seed = seed
@@ -92,7 +94,19 @@ class ShepardNet(pl.LightningModule):
 
 def train(args):
 
+    start = time.time()
+
+    batch_size = training_configs['batch_size']()
+    print("========================================================")
+    print(f"Based on the GPU memory, the batch size is {batch_size}")
+
+    print(f"Logging {'with' if args.wandb_log else 'without'} wandb.")
+    print("========================================================")
+
+
+
     for data_path in data_set_config['paths']:
+        print(f"Trainig on {os.path.basename(data_path)} training dataset")
 
         dataset = PreprocessedImageInpaintingDataset(data_path, extensions=data_set_config['extensions'])
 
@@ -108,9 +122,8 @@ def train(args):
 
         train_set, validation_set = random_split(train_set, [trainset_size - split, split], generator=torch.Generator().manual_seed(seed))
 
-        print(f"Training dataset contains {len(train_set)} examples\nValidation dataset conttains {len(validation_set)}\nTest dataset contains {len(test_set)}")
+        print(f"\tTraining dataset contains {len(train_set)} examples\n\tValidation dataset conttains {len(validation_set)}\n\tTest dataset contains {len(test_set)}")
 
-        batch_size = training_configs['batch_size']()
         
         train_dataloader = DataLoader(train_set, batch_size=batch_size,
                             shuffle=True, num_workers=6)
@@ -123,22 +136,27 @@ def train(args):
 
         # training _____________________________________________________________________________________
 
-        for experiment in experiments_config['experiments']:
+        # for experiment in experiments_config['experiments']:
+        #     print(f"    -------- Model being trained is {experiment['name']} --------")
 
-            layers = experiment['layers']
+        #     layers = experiment['layers']
 
-            net = ShepardNet(layers, training_configs['LR'])
+        #     net = ShepardNet(layers, training_configs['LR'])
 
-            if (args.wandb_log):
-                wandb_logger = WandbLogger(project="ShCNN", name=experiment['name'])
-                wandb_logger.experiment.config.update({'layers': layers})
-                trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=training_configs['epochs'], deterministic=True, logger=wandb_logger)
-            else:
-                trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=training_configs['epochs'], deterministic=True)
+        #     if (args.wandb_log):
+        #         wandb_logger = WandbLogger(project="ShCNN", name=experiment['name'])
+        #         wandb_logger.experiment.config.update({'layers': layers})
+        #         trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=training_configs['epochs'], deterministic=True, logger=wandb_logger)
+        #     else:
+        #         trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=training_configs['epochs'], deterministic=True)
 
-            trainer.fit(net, train_dataloader, validation_dataloader)
+        #     trainer.fit(net, train_dataloader, validation_dataloader)
+
         # training _____________________________________________________________________________________
 
+    print("========================================================")
+    print(f"Training took {(time.time() - start) / 60.0} minutes.")
+    print("========================================================")
 
 if __name__ == "__main__":
 

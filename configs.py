@@ -22,7 +22,7 @@ def get_batch_size():
 
 data_set_config = {
     "splits": {
-        "TEST_SPLIT": 0.15,
+        "TEST_SPLIT": 0.05,
         "VALIDATION_SPLIT": 0.1
     },
     "extensions": ["png"],
