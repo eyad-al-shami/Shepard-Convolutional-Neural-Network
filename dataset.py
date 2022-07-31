@@ -3,6 +3,7 @@ from torchvision import transforms as T
 from glob import glob
 import os
 from PIL import Image
+from torchvision import utils
 
 from transforms import CutOutRectangles, RandomText, ToTensor
 
@@ -50,7 +51,7 @@ class ImageInpaintingDataset(Dataset):
         return sample
 
 
-class ImageInpaintingDatasetPreprocessed(Dataset):
+class PreprocessedImageInpaintingDataset(Dataset):
 
     def __init__(self, root_dir, extensions=['jpg']):
         """
@@ -112,8 +113,12 @@ class ImageInpaintingDatasetPreprocessed(Dataset):
         
 
 
+
 if __name__ == '__main__':
     import numpy as np
+    
+    # THIS CODE IS FOR THE DATASET THAT USES THE ORIGINAL IMAGES AND TRANSFORMS THEM ON THE FLY.
+
     # transform = T.ToPILImage()
     # inpaintingDataset = ImageInpaintingDataset(root_dir='./images', transform=T.Compose([
     #                                         #    CutOutRectangles(num_rectangles=1),
@@ -127,8 +132,12 @@ if __name__ == '__main__':
     #     print(i_batch, sample_batched['mask'].size(),
     #         sample_batched['corrupted'].size())
 
-    
-    inpaintingDataset = ImageInpaintingDatasetPreprocessed(r"C:\Users\eyad\Pictures\Images Datasets\2_cutouts_small_20px", extensions=["png"])
+
+
+
+    # THIS CODE IS FOR THE DATASET THAT LOADS THREE IMAGES SOURCES; ORIGINAL, CORRUPTED, AND MASK. NO TRANSFORMS REQUIRED
+
+    inpaintingDataset = PreprocessedImageInpaintingDataset(r"C:\Users\eyad\Pictures\Images Datasets\2_cutouts_small_20px", extensions=["png"])
     dataloader = DataLoader(inpaintingDataset, batch_size=64, shuffle=True, num_workers=2)
     for i_batch, sample_batched in enumerate(dataloader):
         original, corrupted, mask =  sample_batched
@@ -136,3 +145,8 @@ if __name__ == '__main__':
         print(corrupted.size())
         print(mask.size())
         break
+    img_grid=utils.make_grid(original, nrow=8, padding=4)
+    # display result
+    img = T.ToPILImage()(img_grid)
+    img.show()
+                

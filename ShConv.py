@@ -3,13 +3,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class ShConv(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, bias=True, initial_weight=True):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, bias=True, initial_weight=True, threshold = 0.1):
         super(ShConv, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
+        self.threshold = threshold
 
         if bias:
             self.bias = nn.Parameter(torch.Tensor(out_channels))
@@ -44,6 +45,10 @@ class ShConv(nn.Module):
             mask = intermediate_masks.sum(dim=1, keepdim=True)
             output_features_map = torch.cat((output_features_map, feature_map), dim=1)
             output_mask = torch.cat((output_mask, mask), dim=1)
+            # thresholding
+            with torch.no_grad():
+                output_mask[output_mask >= self.threshold] = 1
+                output_mask[output_mask < self.threshold] = 0
         
         return output_features_map, output_mask
 
