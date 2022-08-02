@@ -53,7 +53,7 @@ class ImageInpaintingDataset(Dataset):
 
 class PreprocessedImageInpaintingDataset(Dataset):
 
-    def __init__(self, root_dir, extensions=['jpg']):
+    def __init__(self, root_dir, extensions=['jpg'], transforms=None):
         """
         Args:
             root_dir (string): Directory with all the images.
@@ -62,7 +62,11 @@ class PreprocessedImageInpaintingDataset(Dataset):
             transform (callable, optional): Optional transform to be applied on a sample.
             nested (bool, optional): if True, images are in a nested directory structure (only one level of nesting).
         """
-        self.to_tensor = T.ToTensor()
+
+        self.transforms = T.Compose([
+            T.ToTensor(),
+            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
 
         self.data = {
             "original": {
@@ -109,7 +113,7 @@ class PreprocessedImageInpaintingDataset(Dataset):
         corrupted = Image.open(corrupted_path)
         mask = Image.open(mask_path)
 
-        return self.to_tensor(original), self.to_tensor(corrupted), self.to_tensor(mask)
+        return self.transforms(original), self.transforms(corrupted), self.transforms(mask)
         
 
 
@@ -149,4 +153,3 @@ if __name__ == '__main__':
     # display result
     img = T.ToPILImage()(img_grid)
     img.show()
-                

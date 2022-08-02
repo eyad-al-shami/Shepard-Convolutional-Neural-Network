@@ -39,11 +39,12 @@ class ShepardNet(pl.LightningModule):
             else:
                 self.modules_list.append(ShConv(input_layer.kernels_num, output_layer.kernels_num, output_layer.kernel_size, stride=output_layer.stride, padding=output_layer.padding))
             self.modules_list.append(nn.ReLU())
-            # if (i != len(self.layers) - 1):
-            #     self.modules_list.append(nn.BatchNorm2d(output_layer.kernels_num))
+            if (i != len(self.layers) - 1):
+                self.modules_list.append(nn.BatchNorm2d(output_layer.kernels_num))
 
         # saving the hyperparameters (for wandb)
         self.save_hyperparameters()
+        self.loss_function = torch.nn.MSELoss()
 
     def forward(self, x, masks):
         for layer in self.modules_list:
@@ -61,7 +62,7 @@ class ShepardNet(pl.LightningModule):
               x, masks = layer(masks, x)
           else:
               x = layer(x)
-        loss = F.mse_loss(original, x)
+        loss = self.loss_function(x, original)
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
@@ -73,7 +74,7 @@ class ShepardNet(pl.LightningModule):
               x, masks = layer(masks, x)
           else:
               x = layer(x)
-        test_loss = F.mse_loss(original, x)
+        test_loss = self.loss_function(x, original)
         self.log("test_loss", test_loss)
 
     def validation_step(self, batch, batch_idx):
@@ -84,7 +85,7 @@ class ShepardNet(pl.LightningModule):
               x, masks = layer(masks, x)
           else:
               x = layer(x)
-        val_loss = F.mse_loss(original, x)
+        val_loss = self.loss_function(x, original)
         self.log("val_loss", val_loss, prog_bar=True)
 
     def configure_optimizers(self):
@@ -99,8 +100,8 @@ def train(args):
     batch_size = training_configs['batch_size']()
     print("========================================================")
     print(f"Based on the GPU memory, the batch size is {batch_size}")
-
     print(f"Logging {'with' if args.wandb_log else 'without'} wandb.")
+    print(f"All models are going to be trained for {training_configs['epochs']} epochs.")
     print("========================================================")
 
 
@@ -124,33 +125,37 @@ def train(args):
 
         print(f"\tTraining dataset contains {len(train_set)} examples\n\tValidation dataset conttains {len(validation_set)}\n\tTest dataset contains {len(test_set)}")
 
-        
-        train_dataloader = DataLoader(train_set, batch_size=batch_size,
-                            shuffle=True, num_workers=6)
 
-        validation_dataloader = DataLoader(validation_set, batch_size=batch_size,
-                            shuffle=False, num_workers=3)
-
-        test_dataloader = DataLoader(test_set, batch_size=batch_size,
-                            shuffle=False, num_workers=2)
+        # test_dataloader = DataLoader(test_set, batch_size=batch_size,
+        #                     shuffle=False, num_workers=2, persistent_workers=True)
 
         # training _____________________________________________________________________________________
 
-        # for experiment in experiments_config['experiments']:
-        #     print(f"    -------- Model being trained is {experiment['name']} --------")
+        for experiment in experiments_config['experiments']:
+            print(f"\n    >>>>>>>>   Model being trained is {experiment['name']}   <<<<<<<<\n")
 
-        #     layers = experiment['layers']
+            train_dataloader = DataLoader(train_set, batch_size=experiment['batch_size'],
+                            shuffle=True, num_workers=2, persistent_workers=True)
 
-        #     net = ShepardNet(layers, training_configs['LR'])
+            validation_dataloader = DataLoader(validation_set, batch_size=experiment['batch_size'],
+                                shuffle=False, num_workers=2, persistent_workers=True)
 
-        #     if (args.wandb_log):
-        #         wandb_logger = WandbLogger(project="ShCNN", name=experiment['name'])
-        #         wandb_logger.experiment.config.update({'layers': layers})
-        #         trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=training_configs['epochs'], deterministic=True, logger=wandb_logger)
-        #     else:
-        #         trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=training_configs['epochs'], deterministic=True)
+            layers = experiment['layers']
 
-        #     trainer.fit(net, train_dataloader, validation_dataloader)
+            net = ShepardNet(layers, training_configs['LR'])
+
+            if (args.wandb_log):
+                wandb_logger = WandbLogger(project="ShCNN", name=experiment['name'], log_model="all", save_dir=args.log_path)
+                wandb_logger.experiment.config.update({'layers': layers}, allow_val_change=True)
+                trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=training_configs['epochs'], deterministic=True, logger=wandb_logger)
+            else:
+                trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=training_configs['epochs'], deterministic=True, default_root_dir=args.log_path)
+
+            model_trainig_time = time.time()
+            trainer.fit(net, train_dataloader, validation_dataloader)
+            print(f"    ---------- Model took {(time.time() - model_trainig_time) / 60.0} minutes. ----------")
+            if (args.wandb_log):
+                wandb_logger.experiment.finish()
 
         # training _____________________________________________________________________________________
 
@@ -158,43 +163,94 @@ def train(args):
     print(f"Training took {(time.time() - start) / 60.0} minutes.")
     print("========================================================")
 
+def infer(args):
+  print(args)
+
+  if (not args.model_path or not args.data_path):
+    raise Exception("model_path and data_path must be specified")
+
+  # data_path = r"C:\Users\eyad\Pictures\Images Datasets\1_cutout_large_50px"
+  data_path = args.data_path
+  batch_size = 1
+
+
+  dataset = PreprocessedImageInpaintingDataset(data_path, extensions=data_set_config['extensions'])
+
+  dataset_size = len(dataset)
+
+  split = int(np.floor(data_set_config['splits']['TEST_SPLIT'] * dataset_size))
+
+  train_set, test_set = random_split(dataset, [dataset_size - split, split], generator=torch.Generator().manual_seed(seed))
+
+  trainset_size = len(train_set)
+
+  split = int(np.floor(data_set_config['splits']['VALIDATION_SPLIT'] * trainset_size))
+
+  train_set, validation_set = random_split(train_set, [trainset_size - split, split], generator=torch.Generator().manual_seed(seed))
+
+  print(f"\tTraining dataset contains {len(train_set)} examples\n\tValidation dataset conttains {len(validation_set)}\n\tTest dataset contains {len(test_set)}")
+
+  train_dataloader = DataLoader(train_set, batch_size=batch_size,
+                      shuffle=True, num_workers=2)
+
+  validation_dataloader = DataLoader(validation_set, batch_size=batch_size,
+                      shuffle=False, num_workers=2)
+
+  test_dataloader = DataLoader(test_set, batch_size=batch_size,
+                      shuffle=False, num_workers=2)
+
+  dataloader_iter = iter(test_dataloader)
+  original, x, masks = next(dataloader_iter)
+
+  img_grid=utils.make_grid(original)
+  img = T.ToPILImage()(img_grid)
+  img.save('/content/outputs/original.png')
+
+  img_grid=utils.make_grid(x)
+  img = T.ToPILImage()(img_grid)
+  img.save('/content/outputs/corrupted.png')
+
+  img_grid=utils.make_grid(masks)
+  img = T.ToPILImage()(img_grid)
+  img.save('/content/outputs/mask.png')
+
+  model_path = r"C:\Users\eyad\Documents\CODE\Training output\lightning_logs\version_0\checkpoints\epoch=4-step=1500.ckpt"
+  model_path = args.model_path
+  net = ShepardNet.load_from_checkpoint(model_path)
+  net.eval()
+
+  # predict with the model
+  y_hat, masks = net(x, masks)
+
+  # print
+  img_grid=utils.make_grid(y_hat)
+  img = T.ToPILImage()(img_grid)
+  img.save('/content/outputs/prediction.png')
+
+def main(args):
+  if (args.train):
+    train(args)
+  if (args.infer):
+    infer(args)
+  else:
+    print("No can do.")
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--wandb-log', help="boolean value to indicate using wandb log or not.", action="store_true", default=False)
+    parser.add_argument('--train', help="boolean value to indicate the training phase.", action="store_true", default=False)
+    parser.add_argument('--log-path', help="Path to save logs", type=str, default="")
+
+    parser.add_argument('--infer', help="boolean value to indicate the infering phase.", action="store_true", default=False)
+    parser.add_argument('--data-path', help="path for the data.", type=str, default="")
+    parser.add_argument('--model-path', help="path for saved model.", type=str, default="")
+
+    
     args = parser.parse_args()
-    train(args)
+    main(args)
 
 
     # DUMMY Training
+
     
-
-    # # layers = [
-    # #     LayersHyperParameters('shepard', 8, 7),
-    # #     LayersHyperParameters('shepard', 8, 5),
-    # #     LayersHyperParameters('conv', 128, 3),
-    # #     LayersHyperParameters('conv', 128, 1),
-    # #     LayersHyperParameters('conv', 3, 3),
-    # # ]
-
-    # net = ShepardNet.load_from_checkpoint(r'.\ShCNN\1o1qhm8a\checkpoints\epoch=19-step=16740.ckpt')
-    # net.eval()
-
-    # dataloader_iter = iter(test_dataloader)
-    # original, x, masks = next(dataloader_iter)
-
-    # # predict with the model
-    # y_hat, masks = net(x, masks)
-
-    # print
-    # img_grid=utils.make_grid(y_hat)
-    # img = T.ToPILImage()(img_grid)
-    # img.show()
-
-    # img_grid=utils.make_grid(original)
-    # img = T.ToPILImage()(img_grid)
-    # img.show()
-
-    # the plan is to do multiple experiments for each model we can train on all the datasets
-    # three models, small, medium, big
-    # one dense network
