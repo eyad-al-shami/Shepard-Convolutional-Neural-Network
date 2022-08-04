@@ -1,7 +1,5 @@
-from re import X
 import numpy as np
 import torch
-from torchvision import transforms
 from PIL import Image
 import matplotlib.font_manager
 import random
@@ -9,13 +7,13 @@ from PIL import ImageFont
 from PIL import ImageDraw
 from glob import glob
 import os
+from multiprocessing import Pool
+from configs import seed
+import argparse
 
-
-seed = 877
 torch.manual_seed(seed)
 random.seed(seed)
 np.random.seed(seed)
-
 
 class CutOutRectangles(object):
     """Cut out randomly rectangles from the image.
@@ -25,7 +23,6 @@ class CutOutRectangles(object):
         max_h_size (int): Maximum height of the cut out rectangle.
         max_w_size (int): Maximum width of the cut out rectangle.
     """
-
     def __init__(
         self,
         root_path,
@@ -44,8 +41,6 @@ class CutOutRectangles(object):
         for p in [self.original, self.corrupted, self.mask]:
             if not os.path.exists(p):
                 os.makedirs(p)
-
-
 
     def __call__(self, original_path : str):
         with Image.open(original_path) as original:
@@ -78,17 +73,15 @@ class CutOutRectangles(object):
 
             Image.fromarray(mask.astype(np.uint8)).save(os.path.join(self.mask, os.path.basename(original_path)))
 
-
 class RandomText(object):
-    """Add text on image .
-
+    """Add random text on image .
     Args:
         text (str): Text to add.
         text_size (int): Size of the text.
         font (str): Font to use.
     """
 
-    def __init__(self, text_size: int, root_path, font=None):
+    def __init__(self, root_path, text_size: int, font=None):
         self.text_size = text_size
         self.font = font
         if font is None:
@@ -101,54 +94,54 @@ class RandomText(object):
         with open('mit-words.txt', 'r') as f:
             self.words = f.read().splitlines()
 
-    def __call__(self, original: Image):
+    def __call__(self, original_path: Image):
+        with Image.open(original_path) as original:
+            try:
+                # font_name = random.choice(self.fonts)
+                font = ImageFont.truetype("arial.ttf", self.text_size)
+            except:
+                font_name = random.choice(self.fonts)
+                font = ImageFont.truetype(font_name, self.text_size)
+            
+            image = original.copy()
+            image_draw = ImageDraw.Draw(image)
+            mask = Image.new(mode="RGB", size=image.size, color = 'white')
+            mask_draw = ImageDraw.Draw(mask)
 
-        try:
-          # font_name = random.choice(self.fonts)
-          font = ImageFont.truetype("arial.ttf", self.text_size)
-        except:
-          font_name = random.choice(self.fonts)
-          font = ImageFont.truetype(font_name, self.text_size)
-          
-        image = original.copy()
-        image_draw = ImageDraw.Draw(image)
-        mask = Image.new(mode="RGB", size=image.size, color = 'white')
-        mask_draw = ImageDraw.Draw(mask)
-
-        # in PIL, size returns (width, height)
-        num_words = image.size[0] // self.text_size
-        words = " ".join(np.random.choice(self.words, num_words))
-
-        randomness_range = 50
-
-        # while we are drawing the text in coordiate smaller than the image's hight continue adding text
-        slack = np.random.choice(randomness_range, 1)[0]
-        # x = np.random.choice(randomness_range, 1)[0]
-        x = 0
-        y = np.random.choice(randomness_range, 1)[0]
-        
-        height = image.size[1]
-        slack_range = np.arange(self.text_size,randomness_range)
-
-        while(y <= height):
-            image_draw.text((x, y + slack), words, (0, 0, 0), font=font)
-            mask_draw.text((x, y + slack), words, (0, 0, 0), font=font)
-            slack = np.random.choice(slack_range, 1)[0]
-            x = np.random.choice(randomness_range, 1)[0]
-            y = y + slack
+            # in PIL, size returns (width, height)
+            num_words = image.size[0] // self.text_size
             words = " ".join(np.random.choice(self.words, num_words))
-            # font_name = random.choice(self.fonts)
+            randomness_range = 50
 
-        self.original = os.path.join(self.root_path, 'original')
-        self.corrupted = os.path.join(self.root_path, 'corrupted')
-        self.mask = os.path.join(self.root_path, 'mask')
+            # while we are drawing the text in coordiate smaller than the image's hight continue adding text
+            slack = np.random.choice(randomness_range, 1)[0]
+            # x = np.random.choice(randomness_range, 1)[0]
+            x = 0
+            y = np.random.choice(randomness_range, 1)[0]
+            height = image.size[1]
+            slack_range = np.arange(self.text_size,randomness_range)
 
-        for p in [self.original, self.corrupted, self.mask]:
-            if not os.path.exists(p):
-                os.makedirs(p)
+            while(y <= height):
+                image_draw.text((x, y + slack), words, (0, 0, 0), font=font)
+                mask_draw.text((x, y + slack), words, (0, 0, 0), font=font)
+                slack = np.random.choice(slack_range, 1)[0]
+                x = np.random.choice(randomness_range, 1)[0]
+                y = y + slack
+                words = " ".join(np.random.choice(self.words, num_words))
+                # font_name = random.choice(self.fonts)
 
+            # self.original = os.path.join(self.root_path, 'original')
+            # self.corrupted = os.path.join(self.root_path, 'corrupted')
+            # self.mask = os.path.join(self.root_path, 'mask')
 
-def read_images(root_dir, extensions=['jpg'], min_size=None, transform=None, nested=False):
+            # for p in [self.original, self.corrupted, self.mask]:
+            #     if not os.path.exists(p):
+            #         os.makedirs(p)
+            original.save(os.path.join(self.original, os.path.basename(original_path)))
+            Image.fromarray(image.astype(np.uint8)).save(os.path.join(self.corrupted, os.path.basename(original_path)))
+            Image.fromarray(mask.astype(np.uint8)).save(os.path.join(self.mask, os.path.basename(original_path)))
+
+def get_images_paths(root_dir, extensions=['jpg'], min_size=None, transform=None, nested=False):
     """
     Args:
         root_dir (string): Directory with all the images.
@@ -177,64 +170,54 @@ def read_images(root_dir, extensions=['jpg'], min_size=None, transform=None, nes
         print("Done.")
     return images
 
-
-
-
-# randTextFun = RandomText(20)
-
-from multiprocessing import Pool
-
+def transform(args):
+    if (not args.custom):
+        datasets = [
+            # {
+            #     'name': "1_cutout_large_50px",
+            #     'transform': 'cutout',
+            #     'parameters': {
+            #         'cutouts': 1,
+            #         'max_size': 50
+            #     }
+            # },
+            {
+                'name': "random_text_20px",
+                'transform': 'random_text',
+                'parameters': {
+                    'text_size': 20,
+                }
+            }
+        ]
+    else:
+        raise Exception("No transform specified")
+    
+    original_data_path = args.origin_data_path
+    base_directory = os.path.dirname(original_data_path)
+    images = get_images_paths(original_data_path, extensions=["png"], nested=True)
+    print(images)
+    print("Generating the datasets...")
+    for dataset in datasets:
+        dataset_path = dataset['name']
+        if not os.path.exists(dataset_path):
+            os.makedirs(dataset_path)
+        if (dataset['transform'] == 'cutout'):
+            transfomation = CutOutRectangles(dataset_path, num_rectangles=dataset['parameters']['cutouts'], max_h_size=dataset['parameters']['max_size'], max_w_size=dataset['parameters']['max_size'])
+        elif (dataset['transform'] == 'random_text'):
+            transfomation = RandomText(dataset_path, text_size=dataset['parameters']['text_size'])
+        print(f"\tdataset['name']")
+        # with Pool(5) as p:
+        #     p.map(transfomation, images)
+        transfomation(images[0])
+    print("Done")
 
 if __name__ == "__main__":
 
-
-    datasets = [
-        {
-            'name': "1_cutout_small_20px",
-            'parameters': {
-                'cutouts': 1,
-                'max_size': 20
-            }
-        },
-        {
-            'name': "1_cutout_large_50px",
-            'parameters': {
-                'cutouts': 1,
-                'max_size': 50
-            }
-        },
-        {
-            'name': "2_cutouts_small_20px",
-            'parameters': {
-                'cutouts': 2,
-                'max_size': 20
-            }
-        },
-        {
-            'name': "2_cutouts_large_50px",
-            'parameters': {
-                'cutouts': 2,
-                'max_size': 50
-            }
-        }
-    ]
-
-    original_data_path = r"C:\Users\eyad\Pictures\Images Datasets\Filcker Faces thumbnails 128x128"
-    base_directory = os.path.dirname(original_data_path)
-
-    images = read_images(original_data_path, extensions=["png"], nested=True)
-
-    for dataset in datasets:
-        dataset_path = os.path.join(base_directory, dataset['name'])
-        if not os.path.exists(dataset_path):
-            os.makedirs(dataset_path)
-
-    
-        cutOutFun = CutOutRectangles(dataset_path, num_rectangles=dataset['parameters']['cutouts'], max_h_size=dataset['parameters']['max_size'], max_w_size=dataset['parameters']['max_size'])
-
-        with Pool(5) as p:
-            p.map(cutOutFun, images)
-        print(f"Done {dataset['name']}")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--origin-data-path', type=str, default=r"C:\Users\eyad\Pictures\Images Datasets\Filcker Faces thumbnails 128x128")
+    parser.add_argument('--custom', help="use the default setting for generating the dataset.", action="store_true", default=False)
+    args = parser.parse_args()
+    transform(args)
 
 
 

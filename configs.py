@@ -2,10 +2,13 @@
 from utils import LayersHyperParameters
 import torch
 
+# The random seed for the experiment
 seed = 877
 
-
 def get_batch_size():
+    '''
+        Returns a batch size that is appropriate for the current GPU
+    '''
     try:
         _, total = torch.cuda.mem_get_info(0)
         total = round(total/1024**3,1)
@@ -33,18 +36,14 @@ data_set_config = {
 }
 
 training_configs = {
-    "epochs": 4,
-    "LR": 1e-3,
+    "epochs": 15,
+    "LR": 5e-3,
     "batch_size": get_batch_size,
     "accelerator": "gpu"
 }
 
 experiments_config = {
     "project": "ShCNN",
-    "sizes": {
-        "small": 5,
-        "medium": 7
-    },
     "experiments": [
         # {
         #     "name": "large_b_6sl",
@@ -87,12 +86,13 @@ experiments_config = {
         # },
         {
             "name": "small_b_2sl",
-            "batch_size": 64,
+            "batch_size": 200,
             "layers": [
-                LayersHyperParameters("shepard", 32, 5),
-                LayersHyperParameters("shepard", 64, 5),
+                LayersHyperParameters("shepard", 8, 7),
+                LayersHyperParameters("shepard", 16, 7),
+                LayersHyperParameters("conv", 128, 5),
                 LayersHyperParameters("conv", 128, 3),
-                LayersHyperParameters("conv", 128, 1),
+                LayersHyperParameters("conv", 256, 3),
                 LayersHyperParameters("conv", 3, 3),
             ]
         },
