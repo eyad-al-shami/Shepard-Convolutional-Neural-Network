@@ -33,22 +33,29 @@ class ShConv(nn.Module):
         kernel_device = self.kernels[0].device
 
         # defining the final output
-        output_features_map = torch.Tensor().to(kernel_device)
-        output_mask = torch.Tensor().to(kernel_device)
+        # output_features_map = torch.Tensor().to(kernel_device)
+        # output_mask = torch.Tensor().to(kernel_device)
+        output_features_map = []
+        output_mask = []
 
         # computing the output for the kernels
         for i, kernel in enumerate(self.kernels):
             intermediate_features_maps = F.conv2d(x, kernel, padding=self.padding, stride=self.stride, groups=x.size(1))
             intermediate_masks = F.conv2d(masks, kernel, padding=self.padding, stride=self.stride, groups=x.size(1))
-            intermediate_features_maps = intermediate_features_maps / (intermediate_masks + 1e-8)
+            intermediate_features_maps /= (intermediate_masks + 1e-8)
             feature_map = intermediate_features_maps.sum(dim=1, keepdim=True) + self.bias[i]
             mask = intermediate_masks.sum(dim=1, keepdim=True)
-            output_features_map = torch.cat((output_features_map, feature_map), dim=1)
-            output_mask = torch.cat((output_mask, mask), dim=1)
+            output_features_map.append(feature_map)
+            output_mask.append(mask)
+            
             # thresholding
             # output_mask[output_mask >= self.threshold] = 1
             # output_mask[output_mask < self.threshold] = 0
-        
+        output_features_map = torch.cat(output_features_map, dim=1)
+        output_mask = torch.cat(output_mask, dim=1)
+        print("--------------------- REQUIRES GRAD ---------------------")
+        print(output_features_map.requires_grad)
+        print(output_mask.requires_grad)
         return output_features_map, output_mask
 
 

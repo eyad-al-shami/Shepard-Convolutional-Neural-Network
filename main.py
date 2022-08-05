@@ -16,6 +16,7 @@ from configs import training_configs, experiments_config, data_set_config, seed
 import argparse
 import os
 import time
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 # fix the seed
 seed = seed
@@ -32,6 +33,8 @@ class ShepardNet(pl.LightningModule):
         the_input_layer = LayersHyperParameters(self.layers[0].layer_type, 3, self.layers[0].kernel_size)
         self.layers = [the_input_layer, *self.layers]
 
+        print(len(self.layers))
+
         self.modules_list = nn.ModuleList()
         for i, (input_layer, output_layer) in enumerate(zip(self.layers[:-1], self.layers[1:])):
             if (output_layer.layer_type == 'conv'):
@@ -39,8 +42,7 @@ class ShepardNet(pl.LightningModule):
             else:
                 self.modules_list.append(ShConv(input_layer.kernels_num, output_layer.kernels_num, output_layer.kernel_size, stride=output_layer.stride, padding=output_layer.padding))
             self.modules_list.append(nn.ReLU())
-            if (i != len(self.layers) - 1):
-                self.modules_list.append(nn.BatchNorm2d(output_layer.kernels_num))
+            self.modules_list.append(nn.BatchNorm2d(output_layer.kernels_num))
 
         # saving the hyperparameters (for wandb)
         self.save_hyperparameters()
@@ -94,6 +96,9 @@ class ShepardNet(pl.LightningModule):
 
 
 def train(args):
+    
+    checkpoint_callback = ModelCheckpoint(monitor="val_loss", mode="max")
+    
 
     start = time.time()
 
@@ -125,17 +130,13 @@ def train(args):
 
         print(f"\tTraining dataset contains {len(train_set)} examples\n\tValidation dataset conttains {len(validation_set)}\n\tTest dataset contains {len(test_set)}")
 
-
-        # test_dataloader = DataLoader(test_set, batch_size=batch_size,
-        #                     shuffle=False, num_workers=2, persistent_workers=True)
-
         # training _____________________________________________________________________________________
 
         for experiment in experiments_config['experiments']:
             print(f"\n    >>>>>>>>   Model being trained is {experiment['name']}   <<<<<<<<\n")
 
             train_dataloader = DataLoader(train_set, batch_size=experiment['batch_size'],
-                            shuffle=True, num_workers=2, persistent_workers=True)
+                            shuffle=True, num_workers=10, persistent_workers=True)
 
             validation_dataloader = DataLoader(validation_set, batch_size=experiment['batch_size'],
                                 shuffle=False, num_workers=2, persistent_workers=True)
@@ -147,9 +148,9 @@ def train(args):
             if (args.wandb_log):
                 wandb_logger = WandbLogger(project="ShCNN", name=experiment['name'], log_model="all", save_dir=args.log_path)
                 wandb_logger.experiment.config.update({'layers': layers}, allow_val_change=True)
-                trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=training_configs['epochs'], deterministic=True, logger=wandb_logger)
+                trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=training_configs['epochs'], deterministic=True, logger=wandb_logger, callbacks=[checkpoint_callback])
             else:
-                trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=training_configs['epochs'], deterministic=True, default_root_dir=args.log_path)
+                trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=training_configs['epochs'], deterministic=True, default_root_dir=args.log_path, callbacks=[checkpoint_callback])
 
             model_trainig_time = time.time()
             trainer.fit(net, train_dataloader, validation_dataloader)
@@ -191,10 +192,10 @@ def infer(args):
   print(f"\tTraining dataset contains {len(train_set)} examples\n\tValidation dataset conttains {len(validation_set)}\n\tTest dataset contains {len(test_set)}")
 
   train_dataloader = DataLoader(train_set, batch_size=batch_size,
-                      shuffle=True, num_workers=2)
+                      shuffle=True, num_workers=8)
 
   validation_dataloader = DataLoader(validation_set, batch_size=batch_size,
-                      shuffle=False, num_workers=2)
+                      shuffle=False, num_workers=4)
 
   test_dataloader = DataLoader(test_set, batch_size=batch_size,
                       shuffle=False, num_workers=2)
@@ -204,17 +205,17 @@ def infer(args):
 
   img_grid=utils.make_grid(original)
   img = T.ToPILImage()(img_grid)
-  img.save('/content/outputs/original.png')
+  img.save('original.png')
 
   img_grid=utils.make_grid(x)
   img = T.ToPILImage()(img_grid)
-  img.save('/content/outputs/corrupted.png')
+  img.save('corrupted.png')
 
   img_grid=utils.make_grid(masks)
   img = T.ToPILImage()(img_grid)
-  img.save('/content/outputs/mask.png')
+  img.save('mask.png')
 
-  model_path = r"C:\Users\eyad\Documents\CODE\Training output\lightning_logs\version_0\checkpoints\epoch=4-step=1500.ckpt"
+  # model_path = r"C:\Users\eyad\Documents\CODE\Training output\lightning_logs\version_0\checkpoints\epoch=4-step=1500.ckpt"
   model_path = args.model_path
   net = ShepardNet.load_from_checkpoint(model_path)
   net.eval()
@@ -225,7 +226,7 @@ def infer(args):
   # print
   img_grid=utils.make_grid(y_hat)
   img = T.ToPILImage()(img_grid)
-  img.save('/content/outputs/prediction.png')
+  img.save('prediction.png')
 
 def main(args):
   if (args.train):
@@ -233,7 +234,9 @@ def main(args):
   if (args.infer):
     infer(args)
   else:
-    print("No can do.")
+    layers = experiments_config['experiments'][0]['layers']
+    net = ShepardNet(layers, training_configs['LR'])
+    print(net)
 
 if __name__ == "__main__":
 
