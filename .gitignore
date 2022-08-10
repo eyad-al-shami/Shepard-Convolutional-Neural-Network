@@ -7,4 +7,5 @@
 *.tiff
 *.svg
 *.svgz
+/Filcker*Faces*thumbnails*128x128
 /__pycache__
