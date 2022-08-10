@@ -57,7 +57,6 @@ class RandomText(object):
     """Add text on image .
 
     Args:
-        text (str): Text to add.
         text_size (int): Size of the text.
         font (str): Font to use.
     """
@@ -78,11 +77,12 @@ class RandomText(object):
     def __call__(self, original: Image):
 
         try:
-          # font_name = random.choice(self.fonts)
-          font = ImageFont.truetype("arial.ttf", self.text_size)
+            font_name = random.choice(self.fonts)
+            # font = ImageFont.truetype("arial.ttf", self.text_size)
+            font = ImageFont.truetype(font_name, self.text_size)
         except:
-          font_name = random.choice(self.fonts)
-          font = ImageFont.truetype(font_name, self.text_size)
+            # font_name = random.choice(self.fonts)
+            font = ImageFont.truetype("arial.ttf", self.text_size)
           
         image = original.copy()
         image_draw = ImageDraw.Draw(image)
@@ -92,14 +92,13 @@ class RandomText(object):
         # in PIL, size returns (width, height)
         num_words = image.size[0] // self.text_size
         words = " ".join(np.random.choice(self.words, num_words))
-
-        randomness_range = 50
+        randomness_range = self.text_size + 5
 
         # while we are drawing the text in coordiate smaller than the image's hight continue adding text
-        slack = np.random.choice(randomness_range, 1)[0]
+        slack = 0
         # x = np.random.choice(randomness_range, 1)[0]
         x = 0
-        y = np.random.choice(randomness_range, 1)[0]
+        y = 10
         
         height = image.size[1]
         slack_range = np.arange(self.text_size,randomness_range)
@@ -108,10 +107,10 @@ class RandomText(object):
             image_draw.text((x, y + slack), words, (0, 0, 0), font=font)
             mask_draw.text((x, y + slack), words, (0, 0, 0), font=font)
             slack = np.random.choice(slack_range, 1)[0]
-            x = np.random.choice(randomness_range, 1)[0]
+            # x = np.random.choice(randomness_range, 1)[0]
             y = y + slack
             words = " ".join(np.random.choice(self.words, num_words))
-            # font_name = random.choice(self.fonts)
+            font_name = random.choice(self.fonts)
 
         return {'original': original, 'corrupted': image, 'mask': mask}
 

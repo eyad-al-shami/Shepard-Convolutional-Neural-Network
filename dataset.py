@@ -11,7 +11,7 @@ from transforms import CutOutRectangles, RandomText, ToTensor
 
 class ImageInpaintingDataset(Dataset):
 
-    def __init__(self, root_dir, extensions=['jpg'], min_size=None, transform=None, nested=False):
+    def __init__(self, root_dir, extensions=['png'], min_size=None, transform=None, nested=False):
         """
         Args:
             root_dir (string): Directory with all the images.
@@ -46,7 +46,6 @@ class ImageInpaintingDataset(Dataset):
     def __getitem__(self, idx):
         img_name = self.images[idx]
         image = Image.open(img_name)
-        sample = {'original': image}
         if self.transform:
             sample = self.transform(image)
         return sample
@@ -54,7 +53,7 @@ class ImageInpaintingDataset(Dataset):
 
 class PreprocessedImageInpaintingDataset(Dataset):
 
-    def __init__(self, root_dir, extensions=['jpg'], transforms=None):
+    def __init__(self, root_dir, extensions=['png'], transforms=None):
         """
         Args:
             root_dir (string): Directory with all the images.
@@ -124,33 +123,36 @@ if __name__ == '__main__':
     
     # THIS CODE IS FOR THE DATASET THAT USES THE ORIGINAL IMAGES AND TRANSFORMS THEM ON THE FLY.
 
-    # transform = T.ToPILImage()
-    # inpaintingDataset = ImageInpaintingDataset(root_dir='./images', transform=T.Compose([
-    #                                         #    CutOutRectangles(num_rectangles=1),
-    #                                            RandomText(text_size=25),
-    #                                            ToTensor()
-    #                                        ]))
-    # dataloader = DataLoader(inpaintingDataset, batch_size=2,
-    #                     shuffle=True, num_workers=0)
-    
-    # for i_batch, sample_batched in enumerate(dataloader):
-    #     print(i_batch, sample_batched['mask'].size(),
-    #         sample_batched['corrupted'].size())
+    transform = T.ToPILImage()
+    inpaintingDataset = ImageInpaintingDataset(root_dir=r'Filcker Faces thumbnails 128x128', nested=True, transform=T.Compose([
+                                            #    CutOutRectangles(num_rectangles=1),
+                                               RandomText(text_size=25),
+                                               ToTensor()
+                                           ]))
+
+    dataloader = DataLoader(inpaintingDataset, batch_size=16,
+                        shuffle=True, num_workers=0)
+    batch = next(iter(dataloader))
+    original, corrupted, mask = batch['original'], batch['corrupted'], batch['mask']
+    img_grid=utils.make_grid(original, nrow=4, padding=4)
+    # display result
+    img = T.ToPILImage()(img_grid)
+    img.show()
 
 
 
 
     # THIS CODE IS FOR THE DATASET THAT LOADS THREE IMAGES SOURCES; ORIGINAL, CORRUPTED, AND MASK. NO TRANSFORMS REQUIRED
 
-    inpaintingDataset = PreprocessedImageInpaintingDataset(r"C:\Users\eyad\Pictures\Images Datasets\2_cutouts_small_20px", extensions=["png"])
-    dataloader = DataLoader(inpaintingDataset, batch_size=64, shuffle=True, num_workers=2)
-    for i_batch, sample_batched in enumerate(dataloader):
-        original, corrupted, mask =  sample_batched
-        print(original.size())
-        print(corrupted.size())
-        print(mask.size())
-        break
-    img_grid=utils.make_grid(original, nrow=8, padding=4)
-    # display result
-    img = T.ToPILImage()(img_grid)
-    img.show()
+    # inpaintingDataset = PreprocessedImageInpaintingDataset(r"C:\Users\eyad\Pictures\Images Datasets\2_cutouts_small_20px", extensions=["png"])
+    # dataloader = DataLoader(inpaintingDataset, batch_size=64, shuffle=True, num_workers=2)
+    # for i_batch, sample_batched in enumerate(dataloader):
+    #     original, corrupted, mask =  sample_batched
+    #     print(original.size())
+    #     print(corrupted.size())
+    #     print(mask.size())
+    #     break
+    # img_grid=utils.make_grid(original, nrow=8, padding=4)
+    # # display result
+    # img = T.ToPILImage()(img_grid)
+    # img.show()

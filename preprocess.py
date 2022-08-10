@@ -19,6 +19,7 @@ class CutOutRectangles(object):
     """Cut out randomly rectangles from the image.
 
     Args:
+        root_path (str): path to the folder where the images are stored.
         num_rectangles (int): Number of rectangles to cut out.
         max_h_size (int): Maximum height of the cut out rectangle.
         max_w_size (int): Maximum width of the cut out rectangle.
@@ -63,9 +64,6 @@ class CutOutRectangles(object):
                 image[y1:y2, x1:x2, :] = 0.
                 # using an RGB mode for the input image in acceptable because we want mask for each input channel
                 mask[y1:y2, x1:x2, :] = 0.
-            # Image.fromarray(image.astype(np.uint8)).save("image-intermediate.png")
-            # Image.fromarray(mask.astype(np.uint8)).save("mask-intermediate.png")
-            # return {'original': original, 'corrupted': Image.fromarray(image.astype(np.uint8)), 'mask': Image.fromarray(mask.astype(np.uint8))}
 
             original.save(os.path.join(self.original, os.path.basename(original_path)))
 
@@ -104,7 +102,7 @@ class RandomText(object):
             if not os.path.exists(p):
                 os.makedirs(p)
 
-    def __call__(self, original_path: Image):
+    def __call__(self, original_path: str):
         with Image.open(original_path) as original:
             try:
                 font_name = random.choice(self.fonts)
@@ -126,7 +124,6 @@ class RandomText(object):
 
             # while we are drawing the text in coordiate smaller than the image's hight continue adding text
             slack = 0
-            # x = np.random.choice(randomness_range, 1)[0]
             x = 0
             y = 10
             height = image.size[1]
@@ -136,10 +133,9 @@ class RandomText(object):
                 image_draw.text((x, y + slack), words, (0, 0, 0), font=font)
                 mask_draw.text((x, y + slack), words, (0, 0, 0), font=font)
                 slack = np.random.choice(slack_range, 1)[0]
-                # x = np.random.choice(randomness_range, 1)[0]
                 y = y + slack
                 words = " ".join(np.random.choice(self.words, num_words))
-                # font_name = random.choice(self.fonts)
+                font_name = random.choice(self.fonts)
 
             original.save(os.path.join(self.original, os.path.basename(original_path)))
             Image.fromarray(np.array(image).astype(np.uint8)).save(os.path.join(self.corrupted, os.path.basename(original_path)))
@@ -177,16 +173,16 @@ def get_images_paths(root_dir, extensions=['jpg'], min_size=None, transform=None
 def transform(args):
     if (not args.custom):
         datasets = [
-            # {
-            #     'name': "1_cutout_large_50px",
-            #     'transform': 'cutout',
-            #     'parameters': {
-            #         'cutouts': 1,
-            #         'max_size': 50
-            #     }
-            # },
             {
-                'name': "random_text_20px",
+                'name': "1_cutout_large_50px",
+                'transform': 'cutout',
+                'parameters': {
+                    'cutouts': 1,
+                    'max_size': 50
+                }
+            },
+            {
+                'name': "random_text_15px",
                 'transform': 'random_text',
                 'parameters': {
                     'text_size': 15,
@@ -212,13 +208,12 @@ def transform(args):
         print(f"\t{dataset['name']}")
         with Pool(5) as p:
             p.map(transfomation, images)
-        # transfomation(images[0])
     print("Done")
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--origin-data-path', type=str, default=r"C:\Users\eyad\Pictures\Images Datasets\Filcker Faces thumbnails 128x128")
+    parser.add_argument('--origin-data-path', type=str, default=r"Filcker Faces thumbnails 128x128")
     parser.add_argument('--custom', help="use the default setting for generating the dataset.", action="store_true", default=False)
     args = parser.parse_args()
     transform(args)

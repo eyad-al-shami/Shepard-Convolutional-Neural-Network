@@ -58,7 +58,63 @@ class ShConv(nn.Module):
         return output_features_map, output_mask
 
 
+# class ShConv_(nn.Module):
+
+#     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, bias=True, initial_weight=True, threshold = 0.01):
+#         super(ShConv_, self).__init__()
+#         self.in_channels = in_channels
+#         self.out_channels = out_channels
+#         self.kernel_size = kernel_size
+#         self.stride = stride
+#         self.padding = padding
+#         self.threshold = threshold
+        
+#         self.zeroing = torch.nn.Threshold(threshold, 0.0)
+
+#         self.kernels = nn.ModuleList()
+#         for i in range(out_channels):
+#             self.kernels.append(nn.Conv2d(in_channels, in_channels, kernel_size, padding="same", groups=in_channels, bias=bias))
+
+#         if initial_weight:
+#             self.__init_weights()
+
+#     def __init_weights(self):
+#         for kernel in self.kernels:
+#             nn.init.kaiming_normal_(kernel.weight)
+#             nn.init.constant_(kernel.bias, 0)
+    
+#     def forward(self, masks, x):
+#         # defining the final output
+#         output_features_map = []
+#         output_mask = []
+
+#         # computing the output for the kernels
+#         for i, kernel in enumerate(self.kernels):
+#             intermediate_features_maps = kernel(x)
+#             intermediate_masks = kernel(masks)
+#             intermediate_features_maps /= (intermediate_masks + 1e-8)
+#             feature_map = intermediate_features_maps.sum(dim=1, keepdim=True)
+#             mask = intermediate_masks.sum(dim=1, keepdim=True)
+#             output_features_map.append(feature_map)
+#             output_mask.append(mask)
+            
+#         output_features_map = torch.cat(output_features_map, dim=1)
+#         output_mask = torch.cat(output_mask, dim=1)
+
+#         # zeroing and thresholding
+#         output_mask = self.zeroing(output_mask)
+#         output_mask = torch.where(output_mask < 0.0, 0.0, 1.0)
+        
+        
+#         return output_features_map, output_mask
+
+
+
 if __name__ == "__main__":
+    from time import time
+
+    s = time()
+
     batch = 13
     in_channels = 8
     out_channels = 512
@@ -67,13 +123,14 @@ if __name__ == "__main__":
     padding = 1
     # TODO: accept both int and string for padding
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    shconv = ShConv(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding)
+    shconv = ShConv_(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding)
     shconv.to(device)
     
     masks = torch.randn(batch, in_channels, 32, 32)
     x = torch.randn(batch, in_channels, 32, 32)
     x, masks = x.to(device), masks.to(device)
     output_features_map, output_mask = shconv(masks, x)
+    print(time() - s)
     print(output_features_map.shape)
     print(output_mask.shape)
 
