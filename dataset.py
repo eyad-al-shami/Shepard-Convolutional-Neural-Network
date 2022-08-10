@@ -4,6 +4,7 @@ from glob import glob
 import os
 from PIL import Image
 from torchvision import utils
+import torchvision
 
 from transforms import CutOutRectangles, RandomText, ToTensor
 
@@ -113,6 +114,7 @@ class PreprocessedImageInpaintingDataset(Dataset):
         mask = Image.open(mask_path)
 
         return self.transforms(original), self.transforms(corrupted), self.transforms(mask)
+        # return torchvision.io.read_image(original_path).float(), torchvision.io.read_image(corrupted_path).float(), torchvision.io.read_image(mask_path).float()
         
 
 

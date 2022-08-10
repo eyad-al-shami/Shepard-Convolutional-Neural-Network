@@ -3,7 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class ShConv(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, bias=True, initial_weight=True, threshold = 0.1):
+
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, bias=True, initial_weight=True, threshold = 0.01):
         super(ShConv, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -11,6 +12,8 @@ class ShConv(nn.Module):
         self.stride = stride
         self.padding = padding
         self.threshold = threshold
+        
+        self.zeroing = torch.nn.Threshold(threshold, 0.0)
 
         if bias:
             self.bias = nn.Parameter(torch.Tensor(out_channels))
@@ -28,10 +31,8 @@ class ShConv(nn.Module):
         nn.init.constant_(self.bias, 0)
     
     def forward(self, masks, x):
-        
         # get the device of one of the kernels
         kernel_device = self.kernels[0].device
-
         # defining the final output
         output_features_map = []
         output_mask = []
@@ -46,15 +47,14 @@ class ShConv(nn.Module):
             output_features_map.append(feature_map)
             output_mask.append(mask)
             
-            
         output_features_map = torch.cat(output_features_map, dim=1)
         output_mask = torch.cat(output_mask, dim=1)
-        # thresholding
-        output_mask[output_mask >= self.threshold] = 1
-        output_mask[output_mask < self.threshold] = 0
-        # print("--------------------- REQUIRES GRAD ---------------------")
-        # print(output_features_map.requires_grad)
-        # print(output_mask.requires_grad)
+
+        # zeroing and thresholding
+        output_mask = self.zeroing(output_mask)
+        output_mask = torch.where(output_mask < 0.0, 0.0, 1.0)
+        
+        
         return output_features_map, output_mask
 
 

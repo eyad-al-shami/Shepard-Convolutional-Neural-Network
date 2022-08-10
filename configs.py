@@ -30,14 +30,14 @@ data_set_config = {
     },
     "extensions": ["png"],
     "paths": [
-        r"C:\Users\eyad\Pictures\Images Datasets\1_cutout_large_50px",
-        # r"C:\Users\eyad\Pictures\Images Datasets\2_cutouts_small_20px"
+        r"../Flicker_faces_128/random_text_20px",
+        # r"../Flicker_faces_128/1_cutout_large_50px"
     ]
 }
 
 training_configs = {
-    "epochs": 15,
-    "LR": 5e-3,
+    "epochs": 4,
+    "LR": 1e-2,
     "batch_size": get_batch_size,
     "accelerator": "gpu"
 }
@@ -46,55 +46,39 @@ experiments_config = {
     "project": "ShCNN",
     "experiments": [
         # {
-        #     "name": "large_b_6sl",
+        #     "name": "small_b_3sl",
+        #     "batch_size": 128,
         #     "layers": [
+        #         LayersHyperParameters("shepard", 8, 7),
+        #         LayersHyperParameters("shepard", 16, 5),
         #         LayersHyperParameters("shepard", 32, 5),
-        #         LayersHyperParameters("shepard", 32, 5),
-        #         LayersHyperParameters("shepard", 64, 3),
-        #         LayersHyperParameters("shepard", 64, 3),
-        #         LayersHyperParameters("shepard", 128, 3),
-        #         LayersHyperParameters("shepard", 128, 3),
+        #         LayersHyperParameters("conv", 64, 5),
         #         LayersHyperParameters("conv", 128, 3),
         #         LayersHyperParameters("conv", 128, 3),
-        #         LayersHyperParameters("conv", 256, 3),
-        #         LayersHyperParameters("conv", 256, 1),
-        #         LayersHyperParameters("conv", 3, 3),
-        #     ]
-        # },
-        # {
-        #     "name": "medium_b_4sl",
-        #     "layers": [
-        #         LayersHyperParameters("shepard", 32, 5),
-        #         LayersHyperParameters("shepard", 64, 5),
-        #         LayersHyperParameters("shepard", 64, 3),
-        #         LayersHyperParameters("shepard", 128, 3),
-        #         LayersHyperParameters("conv", 128, 3),
-        #         LayersHyperParameters("conv", 128, 3),
-        #         LayersHyperParameters("conv", 256, 1),
-        #         LayersHyperParameters("conv", 3, 3),
-        #     ]
-        # },
-        # {
-        #     "name": "small_b_2sl",
-        #     "layers": [
-        #         LayersHyperParameters("shepard", 32, 5),
-        #         LayersHyperParameters("shepard", 64, 5),
-        #         LayersHyperParameters("conv", 128, 3),
-        #         LayersHyperParameters("conv", 128, 1),
         #         LayersHyperParameters("conv", 3, 3),
         #     ]
         # },
         {
-            "name": "small_b_2sl",
-            "batch_size": 200,
+            "name": "base_model",
+            "batch_size": 250,
             "layers": [
-                LayersHyperParameters("shepard", 8, 7),
-                LayersHyperParameters("shepard", 16, 7),
-                LayersHyperParameters("conv", 128, 5),
-                LayersHyperParameters("conv", 128, 3),
-                LayersHyperParameters("conv", 256, 3),
-                LayersHyperParameters("conv", 3, 3),
+                LayersHyperParameters("shepard", 8, 4),
+                LayersHyperParameters("shepard", 8, 4),
+                LayersHyperParameters("conv", 128, 9),
+                LayersHyperParameters("conv", 128, 1),
+                LayersHyperParameters("conv", 3, 8),
             ]
         },
+        # {
+        #     "name": "test_model",
+        #     "batch_size": 250,
+        #     "layers": [
+        #         LayersHyperParameters("shepard", 8, 5),
+        #         LayersHyperParameters("shepard", 8, 5),
+        #         LayersHyperParameters("conv", 128, 9),
+        #         LayersHyperParameters("conv", 128, 1),
+        #         LayersHyperParameters("conv", 3, 7),
+        #     ]
+        # },
     ]
 }

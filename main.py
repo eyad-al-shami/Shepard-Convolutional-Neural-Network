@@ -20,46 +20,58 @@ torch.manual_seed(seed)
 random.seed(seed)
 np.random.seed(seed)
 
+
+def get_data_sets(data_path):
+    dataset = PreprocessedImageInpaintingDataset(data_path, extensions=data_set_config['extensions'])
+    dataset_size = len(dataset)
+    split = int(np.floor(data_set_config['splits']['TEST_SPLIT'] * dataset_size))
+    train_set, test_set = random_split(dataset, [dataset_size - split, split], generator=torch.Generator().manual_seed(seed))
+    # Train, Validation splits
+    trainset_size = len(train_set)
+    split = int(np.floor(data_set_config['splits']['VALIDATION_SPLIT'] * trainset_size))
+    train_set, validation_set = random_split(train_set, [trainset_size - split, split], generator=torch.Generator().manual_seed(seed))
+    return train_set, validation_set, test_set
+
 def train(args):
+    
     start = time.time()
     batch_size = training_configs['batch_size']()
+    
     print("========================================================")
     print(f"Based on the GPU memory, the batch size is {batch_size}")
     print(f"Logging {'with' if args.wandb_log else 'without'} wandb.")
     print(f"All models are going to be trained for {training_configs['epochs']} epochs.")
     print("========================================================")
-
+    
     for data_path in data_set_config['paths']:
         print(f"Trainig on {os.path.basename(data_path)} training dataset")
         # Train, Test splits
-        dataset = PreprocessedImageInpaintingDataset(data_path, extensions=data_set_config['extensions'])
-        dataset_size = len(dataset)
-        split = int(np.floor(data_set_config['splits']['TEST_SPLIT'] * dataset_size))
-        train_set, test_set = random_split(dataset, [dataset_size - split, split], generator=torch.Generator().manual_seed(seed))
-        # Train, Validation splits
-        trainset_size = len(train_set)
-        split = int(np.floor(data_set_config['splits']['VALIDATION_SPLIT'] * trainset_size))
-        train_set, validation_set = random_split(train_set, [trainset_size - split, split], generator=torch.Generator().manual_seed(seed))
-        # printing the sizes of the datasets
+        train_set, validation_set, test_set = get_data_sets(data_path)
         print(f"\tTraining dataset contains {len(train_set)} examples\n\tValidation dataset conttains {len(validation_set)}\n\tTest dataset contains {len(test_set)}")
 
         # The beginning of the training
         for experiment in experiments_config['experiments']:
             print(f"\n>>>>>>>>   Model being trained is {experiment['name']}   <<<<<<<<\n")
             train_dataloader = DataLoader(train_set, batch_size=experiment['batch_size'],
-                            shuffle=True, num_workers=10, persistent_workers=True)
+                            shuffle=True, num_workers=8, persistent_workers=True)
 
             validation_dataloader = DataLoader(validation_set, batch_size=experiment['batch_size'],
-                                shuffle=False, num_workers=2, persistent_workers=True)
+                                shuffle=False, num_workers=4, persistent_workers=True)
             layers = experiment['layers']
             net = ShepardNet(layers, training_configs['LR'])
+            
+            epochs =  args.epochs or training_configs['epochs']
+            print(f"Training for {epochs} epcohs...")
+            
+            log_path = args.log_path
+            checkpoint_callback = ModelCheckpoint(monitor="val_loss")
 
             if (args.wandb_log):
-                wandb_logger = WandbLogger(project="ShCNN", name=experiment['name'], log_model="all", save_dir=args.log_path)
+                wandb_logger = WandbLogger(project="ShCNN", name=experiment['name']+os.path.basename(data_path), log_model="all", save_dir=log_path)
                 wandb_logger.experiment.config.update({'layers': layers}, allow_val_change=True)
-                trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=training_configs['epochs'], deterministic=True, logger=wandb_logger)
+                trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=epochs, deterministic=True, logger=wandb_logger, gradient_clip_val=1.0, callbacks=[checkpoint_callback])
             else:
-                trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=training_configs['epochs'], deterministic=True, default_root_dir=args.log_path)
+                trainer = pl.Trainer(accelerator=training_configs['accelerator'], max_epochs=epochs, deterministic=True, default_root_dir=log_path, gradient_clip_val=1.0, callbacks=[checkpoint_callback])
 
             model_trainig_time = time.time()
             trainer.fit(net, train_dataloader, validation_dataloader)
@@ -82,22 +94,13 @@ def infer(args, batch_size=1):
 
     # recreate the datasets
     data_path = args.data_path
-    dataset = PreprocessedImageInpaintingDataset(data_path, extensions=data_set_config['extensions'])
-    dataset_size = len(dataset)
-    split = int(np.floor(data_set_config['splits']['TEST_SPLIT'] * dataset_size))
-    train_set, test_set = random_split(dataset, [dataset_size - split, split], generator=torch.Generator().manual_seed(seed))
-    trainset_size = len(train_set)
-    split = int(np.floor(data_set_config['splits']['VALIDATION_SPLIT'] * trainset_size))
-    train_set, _ = random_split(train_set, [trainset_size - split, split], generator=torch.Generator().manual_seed(seed))
+    train_set, validation_set, test_set = get_data_sets(data_path)
+    
     test_dataloader = DataLoader(test_set, batch_size=batch_size,
                         shuffle=False, num_workers=2)
 
     dataloader_iter = iter(test_dataloader)
     original, x, masks = next(dataloader_iter)
-
-    img_grid=utils.make_grid(original)
-    img = T.ToPILImage()(img_grid)
-    img.save('original.png')
 
     img_grid=utils.make_grid(x)
     img = T.ToPILImage()(img_grid)
@@ -115,10 +118,16 @@ def infer(args, batch_size=1):
     # predict with the model
     y_hat, masks = net(x, masks)
 
-    # print
     img_grid=utils.make_grid(y_hat)
     img = T.ToPILImage()(img_grid)
-    img.save('/content/outputs/prediction.png')
+    img.save('prediction.png')
+    
+    print(masks.shape)
+    
+    for i in range(8):
+        img_grid=utils.make_grid(masks[0,i])
+        img = T.ToPILImage()(img_grid)
+        img.save(f'masks_{i}.png')
 
 def main(args):
   if (args.train):
@@ -136,6 +145,8 @@ if __name__ == "__main__":
     parser.add_argument('--wandb-log', help="boolean value to indicate using wandb log or not.", action="store_true", default=False)
     parser.add_argument('--train', help="boolean value to indicate the training phase.", action="store_true", default=False)
     parser.add_argument('--log-path', help="Path to save logs", type=str, default="")
+    parser.add_argument('--epochs', help="Number of epochs to overwrite the default one.", type=int, default=0)
+    
 
     parser.add_argument('--infer', help="boolean value to indicate the infering phase.", action="store_true", default=False)
     parser.add_argument('--data-path', help="path for the data.", type=str, default="")
