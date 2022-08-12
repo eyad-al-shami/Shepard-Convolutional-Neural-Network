@@ -29,35 +29,37 @@ data_set_config = {
         "VALIDATION_SPLIT": 0.1
     },
     "extensions": ["png"],
+    "preprocessed_data": False,
+    # can take either text_corruption or cutout_corruption
+    "transform": "text_corruption",
     "paths": [
-        r"../Flicker_faces_128/random_text_20px",
-        # r"../Flicker_faces_128/1_cutout_large_50px"
+        r"./Flicker_faces_128/random_text_20px",
+        r"./Flicker_faces_128/1_cutout_large_50px"
     ]
 }
 
 training_configs = {
-    "epochs": 4,
-    "LR": 1e-2,
-    "batch_size": get_batch_size,
+    "epochs": 12,
+    "LR": 1e-3,
     "accelerator": "gpu"
 }
 
 experiments_config = {
     "project": "ShCNN",
     "experiments": [
-        # {
-        #     "name": "small_b_3sl",
-        #     "batch_size": 128,
-        #     "layers": [
-        #         LayersHyperParameters("shepard", 8, 7),
-        #         LayersHyperParameters("shepard", 16, 5),
-        #         LayersHyperParameters("shepard", 32, 5),
-        #         LayersHyperParameters("conv", 64, 5),
-        #         LayersHyperParameters("conv", 128, 3),
-        #         LayersHyperParameters("conv", 128, 3),
-        #         LayersHyperParameters("conv", 3, 3),
-        #     ]
-        # },
+        {
+            "name": "small_b_3sl",
+            "batch_size": 128,
+            "layers": [
+                LayersHyperParameters("shepard", 8, 7),
+                LayersHyperParameters("shepard", 16, 5),
+                LayersHyperParameters("shepard", 32, 5),
+                LayersHyperParameters("conv", 64, 5),
+                LayersHyperParameters("conv", 128, 3),
+                LayersHyperParameters("conv", 128, 3),
+                LayersHyperParameters("conv", 3, 3),
+            ]
+        },
         {
             "name": "base_model",
             "batch_size": 250,
@@ -69,16 +71,5 @@ experiments_config = {
                 LayersHyperParameters("conv", 3, 8),
             ]
         },
-        # {
-        #     "name": "test_model",
-        #     "batch_size": 250,
-        #     "layers": [
-        #         LayersHyperParameters("shepard", 8, 5),
-        #         LayersHyperParameters("shepard", 8, 5),
-        #         LayersHyperParameters("conv", 128, 9),
-        #         LayersHyperParameters("conv", 128, 1),
-        #         LayersHyperParameters("conv", 3, 7),
-        #     ]
-        # },
     ]
 }

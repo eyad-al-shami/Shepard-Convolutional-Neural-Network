@@ -30,10 +30,8 @@ class ShepardNet(pl.LightningModule):
     def forward(self, x, masks):
         for layer in self.modules_list:
             if isinstance(layer, ShConv):
-                print(layer)
                 x, masks = layer(masks, x)
             else:
-                print(layer)
                 x = layer(x)
         return x, masks
 

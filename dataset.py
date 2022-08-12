@@ -11,7 +11,7 @@ from transforms import CutOutRectangles, RandomText, ToTensor
 
 class ImageInpaintingDataset(Dataset):
 
-    def __init__(self, root_dir, extensions=['png'], min_size=None, transform=None, nested=False):
+    def __init__(self, root_dir, extensions=['png'], min_size=None, transform=None, nested=True):
         """
         Args:
             root_dir (string): Directory with all the images.
@@ -138,21 +138,3 @@ if __name__ == '__main__':
     # display result
     img = T.ToPILImage()(img_grid)
     img.show()
-
-
-
-
-    # THIS CODE IS FOR THE DATASET THAT LOADS THREE IMAGES SOURCES; ORIGINAL, CORRUPTED, AND MASK. NO TRANSFORMS REQUIRED
-
-    # inpaintingDataset = PreprocessedImageInpaintingDataset(r"C:\Users\eyad\Pictures\Images Datasets\2_cutouts_small_20px", extensions=["png"])
-    # dataloader = DataLoader(inpaintingDataset, batch_size=64, shuffle=True, num_workers=2)
-    # for i_batch, sample_batched in enumerate(dataloader):
-    #     original, corrupted, mask =  sample_batched
-    #     print(original.size())
-    #     print(corrupted.size())
-    #     print(mask.size())
-    #     break
-    # img_grid=utils.make_grid(original, nrow=8, padding=4)
-    # # display result
-    # img = T.ToPILImage()(img_grid)
-    # img.show()
